@@ -1,0 +1,9 @@
+[repository]
+name = "hypr-momentum"
+authors = ["zoan37"]
+
+[momentum]
+description = "macOS-style momentum scrolling for touchpads"
+authors = ["zoan37"]
+output = "momentum.so"
+build = ["make all"]
