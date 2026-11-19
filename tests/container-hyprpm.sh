@@ -9,7 +9,7 @@ fi
 HYPR_PKG="${HYPR_PKG_URL:-https://archive.archlinux.org/packages/h/hyprland/hyprland-0.57.2-1-x86_64.pkg.tar.zst}"
 docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   pacman -Syu --noconfirm
-  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep cmake cpio python dbus seatd mesa weston
+  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep cmake cpio python
   curl -fsSL -o /tmp/hyprland.pkg.tar.zst '${HYPR_PKG}'
   pacman -S --needed --noconfirm hyprpm
   pacman -U --noconfirm /tmp/hyprland.pkg.tar.zst || {
@@ -27,9 +27,7 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   make clean all
   test -f momentum.so
   chmod +x bin/omarchy-mac-scrolling-install bin/omarchy-mac-scrolling-uninstall
-  groupadd -r seat 2>/dev/null || true
-  useradd -m -u 1001 -G seat,video hyprtest
-  seatd -g video >/dev/null 2>&1 &
+  useradd -m -u 1001 hyprtest
   install -d -m 0755 /var/cache/hyprpm
   printf '%s\n' 'hyprtest ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/hyprtest
   chmod 0440 /etc/sudoers.d/hyprtest
@@ -39,7 +37,7 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   install -d -o hyprtest -g hyprtest /home/hyprtest/.config/hypr
   printf '%s\n' 'source = /home/hyprtest/.config/omarchy/mac-scrolling.conf' > /home/hyprtest/.config/hypr/hyprland.conf
   chown hyprtest:hyprtest /home/hyprtest/.config/hypr/hyprland.conf
-  chmod +x tests/container-hyprpm-inner.sh
+  chmod +x tests/container-hyprpm-inner.sh tests/hyprland-fake-ipc.py
   sudo -u hyprtest env HOME=/home/hyprtest XDG_RUNTIME_DIR=/tmp/xdg-hyprtest OMARCHY_MAC_SCROLLING_REPO=/work \
     bash /work/tests/container-hyprpm-inner.sh
   echo PASS
