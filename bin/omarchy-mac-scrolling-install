@@ -16,8 +16,11 @@ if [[ ! -f "${CONF_FILE}" ]]; then
   printf '%s\n' '# omarchy-mac-scrolling opt-in (stock Omarchy does not source this file)' >"${CONF_FILE}"
 fi
 
+# Headers must exist before hyprpm add (non-interactive where supported).
+hyprpm update -n 2>/dev/null || hyprpm update -n || hyprpm update
+
 if ! hyprpm list 2>/dev/null | rg -q 'omarchy-mac-scrolling'; then
-  hyprpm add "${REPO_URL}"
+  printf 'y\n' | hyprpm add "${REPO_URL}"
 else
   echo "omarchy-mac-scrolling: hyprpm repo already registered"
 fi

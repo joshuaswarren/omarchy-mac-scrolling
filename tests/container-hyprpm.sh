@@ -9,7 +9,7 @@ fi
 HYPR_PKG="${HYPR_PKG_URL:-https://archive.archlinux.org/packages/h/hyprland/hyprland-0.57.2-1-x86_64.pkg.tar.zst}"
 docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   pacman -Syu --noconfirm
-  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep
+  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep cmake cpio
   curl -fsSL -o /tmp/hyprland.pkg.tar.zst '${HYPR_PKG}'
   pacman -S --needed --noconfirm hyprpm
   pacman -U --noconfirm /tmp/hyprland.pkg.tar.zst || {
@@ -22,6 +22,9 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   test -f momentum.so
   chmod +x bin/omarchy-mac-scrolling-install bin/omarchy-mac-scrolling-uninstall
   useradd -m -u 1001 hyprtest
+  install -d -m 0755 /var/cache/hyprpm
+  printf '%s\n' 'hyprtest ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/hyprtest
+  chmod 0440 /etc/sudoers.d/hyprtest
   chown -R hyprtest:hyprtest /work
   install -d -o hyprtest -g hyprtest -m 700 /tmp/xdg-hyprtest
   install -d -o hyprtest -g hyprtest /home/hyprtest/.config
