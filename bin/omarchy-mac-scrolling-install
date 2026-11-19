@@ -3,18 +3,33 @@ set -euo pipefail
 REPO_URL="${OMARCHY_MAC_SCROLLING_REPO:-https://github.com/joshuaswarren/omarchy-mac-scrolling}"
 CONF_DIR="${HOME}/.config/omarchy"
 CONF_FILE="${CONF_DIR}/mac-scrolling.conf"
+HYPR_CONF="${HYPR_CONF:-${HOME}/.config/hypr/hyprland.conf}"
+SOURCE_LINE="source = ${CONF_FILE}"
+
 if ! command -v hyprpm >/dev/null 2>&1; then
   echo "omarchy-mac-scrolling: hyprpm not found" >&2
   exit 1
 fi
+
 mkdir -p "${CONF_DIR}"
 if [[ ! -f "${CONF_FILE}" ]]; then
-  cat >"${CONF_FILE}" <<EOF
-# omarchy-mac-scrolling opt-in (stock Omarchy does not source this file)
-EOF
+  printf '%s\n' '# omarchy-mac-scrolling opt-in (stock Omarchy does not source this file)' >"${CONF_FILE}"
 fi
-hyprpm add "${REPO_URL}"
-hyprpm enable momentum
+
+if ! hyprpm list 2>/dev/null | rg -q 'omarchy-mac-scrolling'; then
+  hyprpm add "${REPO_URL}"
+else
+  echo "omarchy-mac-scrolling: hyprpm repo already registered"
+fi
+
+hyprpm enable momentum 2>/dev/null || hyprpm enable momentum
+
 hyprpm reload -n 2>/dev/null || hyprpm reload 2>/dev/null || true
-echo "Add one line to hyprland.conf:"
-echo "  source = ${CONF_FILE}"
+
+if [[ -f "${HYPR_CONF}" ]] && ! grep -Fq "${SOURCE_LINE}" "${HYPR_CONF}"; then
+  echo "Add this line to ${HYPR_CONF}:"
+  echo "  ${SOURCE_LINE}"
+elif [[ ! -f "${HYPR_CONF}" ]]; then
+  echo "Create ${HYPR_CONF} with:"
+  echo "  ${SOURCE_LINE}"
+fi

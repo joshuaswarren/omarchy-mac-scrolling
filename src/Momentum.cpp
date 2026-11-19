@@ -4,7 +4,7 @@
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/managers/SeatManager.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
-#include <hyprland/src/desktop/view/window/Window.hpp>
+#include "hypr_window_compat.hpp"
 #include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/debug/log/Logger.hpp>
 
@@ -320,7 +320,7 @@ bool CMomentum::allowedForFocusedWindow() const {
     if (!PWIN)
         return true; // layer surfaces (bars, panels) glide fine
 
-    const auto cls = lowered(PWIN->metadata().appID());
+    const auto cls = lowered(momentumWindowClass(PWIN));
 
     if (const auto it = m_appRules.find(cls); it != m_appRules.end())
         return it->second;
