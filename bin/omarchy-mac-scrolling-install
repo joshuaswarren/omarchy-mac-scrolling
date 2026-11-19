@@ -16,8 +16,20 @@ if [[ ! -f "${CONF_FILE}" ]]; then
   printf '%s\n' '# omarchy-mac-scrolling opt-in (stock Omarchy does not source this file)' >"${CONF_FILE}"
 fi
 
-# Headers must exist before hyprpm add (non-interactive where supported).
-hyprpm update -n 2>/dev/null || hyprpm update -n || hyprpm update
+# Headers must exist before hyprpm add; reload may fail when Hyprland is not running.
+_headers="/var/cache/hyprpm/$(id -un)/headersRoot/share/pkgconfig/hyprland.pc"
+if [[ ! -f "${_headers}" ]]; then
+  hyprpm update -n || true
+  if [[ ! -f "${_headers}" ]]; then
+    hyprpm update -n || true
+  fi
+  if [[ ! -f "${_headers}" ]]; then
+    echo "omarchy-mac-scrolling: hyprpm update failed (headers missing)" >&2
+    exit 1
+  fi
+else
+  hyprpm update -n 2>/dev/null || true
+fi
 
 if ! hyprpm list 2>/dev/null | rg -q 'omarchy-mac-scrolling'; then
   printf 'y\n' | hyprpm add "${REPO_URL}"
