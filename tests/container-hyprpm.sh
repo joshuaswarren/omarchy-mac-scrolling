@@ -9,7 +9,7 @@ fi
 HYPR_PKG="${HYPR_PKG_URL:-https://archive.archlinux.org/packages/h/hyprland/hyprland-0.57.2-1-x86_64.pkg.tar.zst}"
 docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   pacman -Syu --noconfirm
-  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep cmake cpio
+  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep cmake cpio mesa
   curl -fsSL -o /tmp/hyprland.pkg.tar.zst '${HYPR_PKG}'
   pacman -S --needed --noconfirm hyprpm
   pacman -U --noconfirm /tmp/hyprland.pkg.tar.zst || {
@@ -31,14 +31,8 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   install -d -o hyprtest -g hyprtest /home/hyprtest/.config/hypr
   printf '%s\n' 'source = /home/hyprtest/.config/omarchy/mac-scrolling.conf' > /home/hyprtest/.config/hypr/hyprland.conf
   chown hyprtest:hyprtest /home/hyprtest/.config/hypr/hyprland.conf
-  sudo -u hyprtest env HOME=/home/hyprtest XDG_RUNTIME_DIR=/tmp/xdg-hyprtest OMARCHY_MAC_SCROLLING_REPO=/work bash -exc '
-    /work/bin/omarchy-mac-scrolling-install
-    test -f /home/hyprtest/.config/omarchy/mac-scrolling.conf
-    /work/bin/omarchy-mac-scrolling-install
-    /work/bin/omarchy-mac-scrolling-uninstall
-    test ! -f /home/hyprtest/.config/omarchy/mac-scrolling.conf
-    ! rg -q mac-scrolling.conf /home/hyprtest/.config/hypr/hyprland.conf
-    hyprpm list
-  '
+  chmod +x tests/container-hyprpm-inner.sh
+  sudo -u hyprtest env HOME=/home/hyprtest XDG_RUNTIME_DIR=/tmp/xdg-hyprtest OMARCHY_MAC_SCROLLING_REPO=/work \
+    bash /work/tests/container-hyprpm-inner.sh
   echo PASS
 "
