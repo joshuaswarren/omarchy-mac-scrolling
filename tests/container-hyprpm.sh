@@ -9,7 +9,7 @@ fi
 HYPR_PKG="${HYPR_PKG_URL:-https://archive.archlinux.org/packages/h/hyprland/hyprland-0.57.2-1-x86_64.pkg.tar.zst}"
 docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   pacman -Syu --noconfirm
-  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep cmake cpio python dbus seatd mesa
+  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo ripgrep cmake cpio python dbus seatd mesa weston
   curl -fsSL -o /tmp/hyprland.pkg.tar.zst '${HYPR_PKG}'
   pacman -S --needed --noconfirm hyprpm
   pacman -U --noconfirm /tmp/hyprland.pkg.tar.zst || {
