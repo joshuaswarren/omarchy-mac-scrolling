@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+CONF_FILE="${HOME}/.config/omarchy/mac-scrolling.conf"
+if command -v hyprpm >/dev/null 2>&1; then
+  hyprpm disable momentum 2>/dev/null || true
+  hyprpm remove omarchy-mac-scrolling 2>/dev/null || true
+  hyprpm reload -n 2>/dev/null || true
+fi
+rm -f "${CONF_FILE}"
+echo "omarchy-mac-scrolling: uninstalled."

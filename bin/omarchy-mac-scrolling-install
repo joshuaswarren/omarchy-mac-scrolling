@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+REPO_URL="${OMARCHY_MAC_SCROLLING_REPO:-https://github.com/joshuaswarren/omarchy-mac-scrolling}"
+CONF_DIR="${HOME}/.config/omarchy"
+CONF_FILE="${CONF_DIR}/mac-scrolling.conf"
+if ! command -v hyprpm >/dev/null 2>&1; then
+  echo "omarchy-mac-scrolling: hyprpm not found" >&2
+  exit 1
+fi
+mkdir -p "${CONF_DIR}"
+if [[ ! -f "${CONF_FILE}" ]]; then
+  cat >"${CONF_FILE}" <<EOF
+# omarchy-mac-scrolling opt-in (stock Omarchy does not source this file)
+EOF
+fi
+hyprpm add "${REPO_URL}"
+hyprpm enable momentum
+hyprpm reload -n 2>/dev/null || hyprpm reload 2>/dev/null || true
+echo "Add one line to hyprland.conf:"
+echo "  source = ${CONF_FILE}"

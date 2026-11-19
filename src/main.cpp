@@ -109,42 +109,52 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (SERVER != CLIENT)
         throw std::runtime_error("[momentum] built for a different Hyprland (" + CLIENT + " vs running " + SERVER + "), rebuild the plugin");
 
-    registerConfig();
+    try {
+        registerConfig();
 
-    g_pMomentum = new CMomentum();
+        g_pMomentum = new CMomentum();
 
-    registerLua();
+        registerLua();
 
-    g_axisListener = Event::bus()->m_events.input.mouse.axis.listen([](const IPointer::SAxisEvent& e, Event::SCallbackInfo&) {
-        if (g_pMomentum)
-            g_pMomentum->onAxis(e);
-        // Never cancelled: the live scroll always passes through to the app.
-    });
-
-    g_buttonListener = Event::bus()->m_events.input.mouse.button.listen([](const IPointer::SButtonEvent& e, Event::SCallbackInfo&) {
-        if (g_pMomentum && e.state == WL_POINTER_BUTTON_STATE_PRESSED)
-            g_pMomentum->onButtonPress();
-    });
-
-    g_focusListener = g_pSeatManager->m_events.pointerFocusChange.listen([] {
-        if (g_pMomentum)
-            g_pMomentum->onPointerFocusChange();
-    });
-
-    // The "catch": touching the pad during a glide stops it. Scroll events
-    // are handled by onAxis; these cover cursor motion and resting fingers.
-    for (const auto& pointer : g_pInputManager->m_pointers) {
-        if (!pointer || !pointer->m_isTouchpad)
-            continue;
-
-        g_touchpadListeners.emplace_back(pointer->m_pointerEvents.motion.listen([](const IPointer::SMotionEvent&) {
+        g_axisListener = Event::bus()->m_events.input.mouse.axis.listen([](const IPointer::SAxisEvent& e, Event::SCallbackInfo&) {
             if (g_pMomentum)
-                g_pMomentum->onTouchpadContact();
-        }));
-        g_touchpadListeners.emplace_back(pointer->m_pointerEvents.holdBegin.listen([](const IPointer::SHoldBeginEvent&) {
+                g_pMomentum->onAxis(e);
+            // Never cancelled: the live scroll always passes through to the app.
+        });
+
+        g_buttonListener = Event::bus()->m_events.input.mouse.button.listen([](const IPointer::SButtonEvent& e, Event::SCallbackInfo&) {
+            if (g_pMomentum && e.state == WL_POINTER_BUTTON_STATE_PRESSED)
+                g_pMomentum->onButtonPress();
+        });
+
+        g_focusListener = g_pSeatManager->m_events.pointerFocusChange.listen([] {
             if (g_pMomentum)
-                g_pMomentum->onTouchpadContact();
-        }));
+                g_pMomentum->onPointerFocusChange();
+        });
+
+        // The "catch": touching the pad during a glide stops it. Scroll events
+        // are handled by onAxis; these cover cursor motion and resting fingers.
+        for (const auto& pointer : g_pInputManager->m_pointers) {
+            if (!pointer || !pointer->m_isTouchpad)
+                continue;
+
+            g_touchpadListeners.emplace_back(pointer->m_pointerEvents.motion.listen([](const IPointer::SMotionEvent&) {
+                if (g_pMomentum)
+                    g_pMomentum->onTouchpadContact();
+            }));
+            g_touchpadListeners.emplace_back(pointer->m_pointerEvents.holdBegin.listen([](const IPointer::SHoldBeginEvent&) {
+                if (g_pMomentum)
+                    g_pMomentum->onTouchpadContact();
+            }));
+        }
+    } catch (...) {
+        g_axisListener.reset();
+        g_buttonListener.reset();
+        g_focusListener.reset();
+        g_touchpadListeners.clear();
+        delete g_pMomentum;
+        g_pMomentum = nullptr;
+        throw;
     }
 
     return {"hypr-momentum", "macOS-style momentum scrolling for touchpads", "zoan37", "0.1.0"};

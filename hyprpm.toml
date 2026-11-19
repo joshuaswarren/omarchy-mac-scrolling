@@ -1,9 +1,9 @@
 [repository]
-name = "hypr-momentum"
-authors = ["zoan37"]
+name = "omarchy-mac-scrolling"
+authors = ["joshuaswarren", "zoan37"]
 
 [momentum]
-description = "macOS-style momentum scrolling for touchpads"
+description = "macOS-style momentum scrolling for touchpads (Omarchy opt-in package)"
 authors = ["zoan37"]
 output = "momentum.so"
 build = ["make all"]
