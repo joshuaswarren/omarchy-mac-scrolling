@@ -320,7 +320,7 @@ bool CMomentum::allowedForFocusedWindow() const {
     if (!PWIN)
         return true; // layer surfaces (bars, panels) glide fine
 
-    const auto cls = lowered(PWIN->m_class);
+    const auto cls = lowered(PWIN->metadata().appID());
 
     if (const auto it = m_appRules.find(cls); it != m_appRules.end())
         return it->second;
