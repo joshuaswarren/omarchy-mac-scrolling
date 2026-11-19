@@ -39,7 +39,11 @@ fi
 
 hyprpm enable momentum 2>/dev/null || hyprpm enable momentum
 
-hyprpm reload -n 2>/dev/null || hyprpm reload 2>/dev/null || true
+if [[ -n "${OMARCHY_MAC_SCROLLING_NO_RELOAD:-}" ]]; then
+  hyprpm reload -n 2>/dev/null || true
+else
+  hyprpm reload -n 2>/dev/null || hyprpm reload 2>/dev/null || true
+fi
 
 if [[ -f "${HYPR_CONF}" ]] && ! grep -Fq "${SOURCE_LINE}" "${HYPR_CONF}"; then
   echo "Add this line to ${HYPR_CONF}:"

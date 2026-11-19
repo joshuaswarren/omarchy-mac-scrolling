@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, socket, subprocess, sys, threading
+
+import os
+import socket
+import subprocess
+import sys
+import threading
+
 _SIG = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
 _XDG = os.environ.get("XDG_RUNTIME_DIR", "")
 if not _SIG or not _XDG:
@@ -19,10 +25,11 @@ def _handle(conn):
         data += chunk
         if b"\n" in data:
             break
-    req = data.decode(errors="replace").strip().lower()
-    if "plugins" in req:
+    req = data.decode(errors="replace").strip()
+    low = req.lower()
+    if low.startswith("j/plugins"):
         payload = "[]"
-    elif "version" in req:
+    elif low.startswith("j/version"):
         payload = _VERSION
     else:
         payload = "ok"

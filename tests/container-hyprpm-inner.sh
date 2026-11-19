@@ -2,9 +2,12 @@
 # Run as non-root (hyprtest) inside the Arch container smoke test.
 set -euo pipefail
 export OMARCHY_MAC_SCROLLING_REPO="${OMARCHY_MAC_SCROLLING_REPO:-/work}"
+export OMARCHY_MAC_SCROLLING_NO_RELOAD=1
 
-read -r _COMMIT _ABI <<<"$(Hyprland --version-json | python3 -c 'import json,sys; j=json.load(sys.stdin); print(j["commit"], j["abiHash"])')"
-export HYPRLAND_INSTANCE_SIGNATURE="${_COMMIT}_$(date +%s)_ci00000001"
+_hl_json="$(Hyprland --version-json)"
+read -r _COMMIT _ABI < <(python3 -c 'import json,sys; j=json.load(sys.stdin); print(j["commit"], j["abiHash"])' <<<"$_hl_json")
+_ts="$(date +%s)"
+export HYPRLAND_INSTANCE_SIGNATURE="${_COMMIT}_${_ts}_ci00000001"
 
 python3 /work/tests/hyprland-fake-ipc.py &
 IPCPID=$!

@@ -39,6 +39,6 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   chown hyprtest:hyprtest /home/hyprtest/.config/hypr/hyprland.conf
   chmod +x tests/container-hyprpm-inner.sh tests/hyprland-fake-ipc.py
   sudo -u hyprtest env HOME=/home/hyprtest XDG_RUNTIME_DIR=/tmp/xdg-hyprtest OMARCHY_MAC_SCROLLING_REPO=/work \
-    bash /work/tests/container-hyprpm-inner.sh
+    timeout 1200 bash /work/tests/container-hyprpm-inner.sh
   echo PASS
 "
