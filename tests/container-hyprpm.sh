@@ -11,10 +11,12 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   pacman -Syu --noconfirm
   pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl
   curl -fsSL -o /tmp/hyprland.pkg.tar.zst '${HYPR_PKG}'
+  pacman -S --needed --noconfirm hyprpm
   pacman -U --noconfirm /tmp/hyprland.pkg.tar.zst || {
     pacman -S --needed --noconfirm aquamarine hyprutils hyprlang hyprcursor hyprgraphics wayland wayland-protocols xcb-util-errors xcb-util-renderutil libxcb
     pacman -U --noconfirm /tmp/hyprland.pkg.tar.zst
   }
+  pacman -S --needed --noconfirm hyprpm
   command -v hyprpm
   cp -a /repo /work && cd /work
   make clean all
