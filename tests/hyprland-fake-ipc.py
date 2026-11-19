@@ -26,7 +26,10 @@ def _handle(conn):
         payload = _VERSION
     else:
         payload = "ok"
-    conn.sendall(payload.encode() + b"\n")
+    try:
+        conn.sendall(payload.encode() + b"\n")
+    except BrokenPipeError:
+        pass
     conn.close()
 server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 server.bind(_SOCK)

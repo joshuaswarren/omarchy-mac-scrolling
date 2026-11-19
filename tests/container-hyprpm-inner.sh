@@ -14,7 +14,7 @@ python3 /work/tests/hyprland-fake-ipc.py &
 IPCPID=$!
 trap 'kill "${IPCPID}" 2>/dev/null || true' EXIT
 sleep 0.5
-hyprctl version | python3 -c 'import json,sys; json.load(sys.stdin)'
+hyprctl -j version | python3 -c 'import json,sys; json.load(sys.stdin)'
 
 /work/bin/omarchy-mac-scrolling-install
 test -f "${HOME}/.config/omarchy/mac-scrolling.conf"
