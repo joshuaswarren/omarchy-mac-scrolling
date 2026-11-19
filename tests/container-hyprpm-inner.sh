@@ -3,18 +3,18 @@
 set -euo pipefail
 export OMARCHY_MAC_SCROLLING_REPO="${OMARCHY_MAC_SCROLLING_REPO:-/work}"
 
-Hyprland --version-json | python3 -c 'import json,sys; json.load(sys.stdin)'
+read -r _COMMIT _ABI <<<"$(Hyprland --version-json | python3 -c 'import json,sys; j=json.load(sys.stdin); print(j["commit"], j["abiHash"])')"
+export HYPRLAND_INSTANCE_SIGNATURE="${_COMMIT}_$(date +%s)_ci00000001"
 
-_headers="/var/cache/hyprpm/$(id -un)/headersRoot/share/pkgconfig/hyprland.pc"
-hyprpm update -f -n || true
-test -f "${_headers}"
-
-export HYPRLAND_INSTANCE_SIGNATURE="smoke00000000000000000000000000001"
 python3 /work/tests/hyprland-fake-ipc.py &
 IPCPID=$!
 trap 'kill "${IPCPID}" 2>/dev/null || true' EXIT
 sleep 0.5
-hyprctl -j version | python3 -c 'import json,sys; json.load(sys.stdin)'
+test -S "${XDG_RUNTIME_DIR}/hypr/${HYPRLAND_INSTANCE_SIGNATURE}/.socket.sock"
+
+_headers="/var/cache/hyprpm/$(id -un)/headersRoot/share/pkgconfig/hyprland.pc"
+hyprpm update -f -n || true
+test -f "${_headers}"
 
 /work/bin/omarchy-mac-scrolling-install
 test -f "${HOME}/.config/omarchy/mac-scrolling.conf"
