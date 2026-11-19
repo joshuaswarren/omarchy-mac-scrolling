@@ -24,6 +24,7 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   useradd -m -u 1001 hyprtest
   chown -R hyprtest:hyprtest /work
   install -d -o hyprtest -g hyprtest -m 700 /tmp/xdg-hyprtest
+  install -d -o hyprtest -g hyprtest /home/hyprtest/.config
   install -d -o hyprtest -g hyprtest /home/hyprtest/.config/hypr
   printf '%s\n' 'source = /home/hyprtest/.config/omarchy/mac-scrolling.conf' > /home/hyprtest/.config/hypr/hyprland.conf
   chown hyprtest:hyprtest /home/hyprtest/.config/hypr/hyprland.conf
