@@ -2,26 +2,17 @@
 # Run as non-root (hyprtest) inside the Arch container smoke test.
 set -euo pipefail
 export OMARCHY_MAC_SCROLLING_REPO="${OMARCHY_MAC_SCROLLING_REPO:-/work}"
-export WLR_BACKENDS="${WLR_BACKENDS:-headless}"
-export WLR_RENDERER="${WLR_RENDERER:-pixman}"
-export HYPRLAND_NO_SD_NOTIFY="${HYPRLAND_NO_SD_NOTIFY:-1}"
+unset HYPRLAND_INSTANCE_SIGNATURE
 
-printf '%s
-' 'monitor=,preferred,auto,1' >"${HOME}/.config/hypr/headless.conf"
-Hyprland -c "${HOME}/.config/hypr/headless.conf" &
-HL_PID=$!
-trap 'kill "${HL_PID}" 2>/dev/null || true' EXIT
+Hyprland --version-json | python3 -c 'import json,sys; json.load(sys.stdin)'
 
-for _ in $(seq 1 120); do
-  if compgen -G "${XDG_RUNTIME_DIR}/hypr/*" >/dev/null; then
-    export HYPRLAND_INSTANCE_SIGNATURE="$(basename "$(ls -d "${XDG_RUNTIME_DIR}/hypr/"* | head -1)")"
-    break
-  fi
-  sleep 0.25
-done
-test -n "${HYPRLAND_INSTANCE_SIGNATURE:-}"
+_headers="/var/cache/hyprpm/$(id -un)/headersRoot/share/pkgconfig/hyprland.pc"
+hyprpm update -f -n || true
+if [[ ! -f "${_headers}" ]]; then
+  hyprpm update -f -n || true
+fi
+test -f "${_headers}"
 
-hyprpm update -n || true
 /work/bin/omarchy-mac-scrolling-install
 test -f "${HOME}/.config/omarchy/mac-scrolling.conf"
 /work/bin/omarchy-mac-scrolling-install
