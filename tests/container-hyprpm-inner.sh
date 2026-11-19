@@ -3,15 +3,33 @@
 set -euo pipefail
 export OMARCHY_MAC_SCROLLING_REPO="${OMARCHY_MAC_SCROLLING_REPO:-/work}"
 unset HYPRLAND_INSTANCE_SIGNATURE
+LOG="/tmp/hyprland-smoke.log"
 
 Hyprland --version-json | python3 -c 'import json,sys; json.load(sys.stdin)'
 
 _headers="/var/cache/hyprpm/$(id -un)/headersRoot/share/pkgconfig/hyprland.pc"
 hyprpm update -f -n || true
-if [[ ! -f "${_headers}" ]]; then
-  hyprpm update -f -n || true
-fi
 test -f "${_headers}"
+
+printf '%s\n' 'monitor=HEADLESS-1,preferred,auto,1' >"${HOME}/.config/hypr/headless.conf"
+dbus-run-session -- env WLR_BACKENDS=headless WLR_RENDERER=pixman HYPRLAND_NO_SD_NOTIFY=1 \
+  Hyprland -c "${HOME}/.config/hypr/headless.conf" >"${LOG}" 2>&1 &
+HL_PID=$!
+trap 'kill "${HL_PID}" 2>/dev/null || true' EXIT
+
+for _ in $(seq 1 240); do
+  kill -0 "${HL_PID}" 2>/dev/null || { tail -80 "${LOG}" >&2; exit 1; }
+  for sigdir in "${XDG_RUNTIME_DIR}/hypr/"*; do
+    [[ -d "${sigdir}" ]] || continue
+    export HYPRLAND_INSTANCE_SIGNATURE="$(basename "${sigdir}")"
+    if [[ -S "${sigdir}/.socket.sock" ]] && hyprctl version >/dev/null 2>&1; then
+      break 2
+    fi
+    unset HYPRLAND_INSTANCE_SIGNATURE
+  done
+  sleep 0.25
+done
+test -n "${HYPRLAND_INSTANCE_SIGNATURE:-}"
 
 /work/bin/omarchy-mac-scrolling-install
 test -f "${HOME}/.config/omarchy/mac-scrolling.conf"
