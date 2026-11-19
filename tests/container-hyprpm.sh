@@ -9,7 +9,7 @@ fi
 HYPR_PKG="${HYPR_PKG_URL:-https://archive.archlinux.org/packages/h/hyprland/hyprland-0.57.2-1-x86_64.pkg.tar.zst}"
 docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   pacman -Syu --noconfirm
-  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl
+  pacman -S --needed --noconfirm base-devel libinput libdrm pixman lua git curl sudo
   curl -fsSL -o /tmp/hyprland.pkg.tar.zst '${HYPR_PKG}'
   pacman -S --needed --noconfirm hyprpm
   pacman -U --noconfirm /tmp/hyprland.pkg.tar.zst || {
@@ -21,13 +21,16 @@ docker run --rm -v "${ROOT}:/repo:ro" "${IMG}" bash -exc "
   cp -a /repo /work && cd /work
   make clean all
   test -f momentum.so
-  export HOME=/root XDG_RUNTIME_DIR=/tmp/xdg
-  mkdir -p "\$XDG_RUNTIME_DIR"
-  hyprpm add /work
-  hyprpm enable momentum
-  hyprpm disable momentum
-  hyprpm remove omarchy-mac-scrolling
-  chmod +x bin/omarchy-mac-scrolling-uninstall
-  ./bin/omarchy-mac-scrolling-uninstall
+  useradd -m -u 1001 hyprtest
+  chown -R hyprtest:hyprtest /work
+  sudo -u hyprtest env HOME=/home/hyprtest XDG_RUNTIME_DIR=/tmp/xdg-hyprtest bash -exc "
+    mkdir -p \\$XDG_RUNTIME_DIR
+    hyprpm add /work
+    hyprpm enable momentum
+    hyprpm disable momentum
+    hyprpm remove omarchy-mac-scrolling
+    /work/bin/omarchy-mac-scrolling-uninstall
+  "
+  pacman -S --needed --noconfirm sudo
   echo PASS
 "
