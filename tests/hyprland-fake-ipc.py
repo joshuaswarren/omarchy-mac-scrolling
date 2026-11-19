@@ -17,14 +17,19 @@ _SOCK = os.path.join(_DIR, ".socket.sock")
 os.makedirs(_DIR, mode=0o700, exist_ok=True)
 _VERSION = subprocess.check_output(["Hyprland", "--version-json"], text=True).strip()
 def _handle(conn):
+    # hyprpm/hyprctl send one command without newline and keep the socket open for the reply
+    conn.settimeout(0.25)
     data = b""
-    while len(data) < 65536:
-        chunk = conn.recv(4096)
-        if not chunk:
-            break
-        data += chunk
-        if b"\n" in data:
-            break
+    try:
+        while len(data) < 65536:
+            chunk = conn.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+            if b"\n" in data:
+                break
+    except TimeoutError:
+        pass
     req = data.decode(errors="replace").strip()
     low = req.lower()
     if low.startswith("j/plugins"):
