@@ -16,19 +16,17 @@ Equivalent manual steps:
 
 ```sh
 hyprpm add https://github.com/joshuaswarren/omarchy-mac-scrolling
-hyprpm enable momentum
-hyprpm reload
 ```
 
-## Opt in (one config line)
+## Opt in
 
-Stock Omarchy is unchanged unless you add **one** line to `hyprland.conf`:
+A fresh install leaves the plugin disabled. To enable it in Hyprland:
 
-```conf
-source = ~/.config/omarchy/mac-scrolling.conf
+```sh
+hyprpm enable momentum && hyprpm reload
 ```
 
-The install script creates that snippet only under your home directory.
+To turn it off, run `hyprpm disable momentum && hyprpm reload`. Reinstalling preserves your current hyprpm setting.
 
 Tune at runtime (plugins load after config parse):
 
@@ -42,7 +40,7 @@ hyprctl eval "hl.plugin.momentum.set('decay', 0.9985)"
 ./bin/omarchy-mac-scrolling-uninstall
 ```
 
-Removes the hyprpm repository and `~/.config/omarchy/mac-scrolling.conf`. Remove the `source = ...` line you added. No stock Omarchy paths are edited.
+Removes the hyprpm repository without editing your config. An include or snippet left by an older version belongs to you; remove it manually if you no longer need it.
 
 ## Test
 

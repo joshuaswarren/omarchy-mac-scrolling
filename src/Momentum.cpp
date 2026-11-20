@@ -2,7 +2,7 @@
 #include "globals.hpp"
 
 #include <hyprland/src/Compositor.hpp>
-#include <hyprland/src/managers/SeatManager.hpp>
+#include <hyprland/src/protocols/InputCapture.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include "hypr_window_compat.hpp"
 #include <hyprland/src/output/Monitor.hpp>
@@ -73,6 +73,17 @@ static bool inClassList(const std::string& loweredClass, std::string list) {
     return false;
 }
 
+static void sendGlideAxis(const SP<IPointer>& device, wl_pointer_axis axis, double delta, uint32_t timeMs) {
+    // FINGER selects Hyprland's native touchpad and window scaling.
+    g_pInputManager->onMouseWheel({.timeMs = timeMs, .source = WL_POINTER_AXIS_SOURCE_FINGER, .axis = axis, .delta = delta}, device);
+}
+
+static uint32_t axisTimeMs(double now) {
+    return static_cast<uint32_t>(static_cast<uint64_t>(now));
+}
+
+static constexpr wl_pointer_axis AXES[] = {WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_HORIZONTAL_SCROLL};
+
 CMomentum::CMomentum() {
     auto* loop     = g_pCompositor->m_wlEventLoop;
     m_trackTimeout = wl_event_loop_add_timer(loop, trackTimeoutCb, this);
@@ -94,10 +105,14 @@ void CMomentum::resetAppRules() {
     m_appRules.clear();
 }
 
-void CMomentum::stop(const char* reason) {
+void CMomentum::stop(const char* reason, bool endAxes) {
     if (m_phase != Phase::IDLE)
         dbg(std::string{"stop: "} + reason);
 
+    const auto device = m_device.lock();
+    const auto axes = m_glideAxes;
+    m_device.reset();
+    m_glideAxes = 0;
     m_phase     = Phase::IDLE;
     m_emaV      = m_emaH = 0.0;
     m_bucketV   = m_bucketH = 0.0;
@@ -107,18 +122,19 @@ void CMomentum::stop(const char* reason) {
 
     wl_event_source_timer_update(m_trackTimeout, 0);
     wl_event_source_timer_update(m_glideTimer, 0);
+
+    if (endAxes && axes && device && device->m_connected && !PROTO::inputCapture->isCaptured()) {
+        const auto timeMs = axisTimeMs(nowMs());
+        for (unsigned i = 0; i < 2; ++i)
+            if (axes & (1U << i))
+                sendGlideAxis(device, AXES[i], 0.0, timeMs);
+        g_pInputManager->onPointerFrame();
+    }
 }
 
-void CMomentum::onAxis(const IPointer::SAxisEvent& e) {
-    // Touchpads only. Wheel and continuous sources are excluded on purpose:
-    // momentum is a trackpad gesture (and our own synthetic events bypass the
-    // event bus entirely, so there is no feedback loop to guard against). A
-    // real scroll from another device still catches a running glide.
-    if (e.source != WL_POINTER_AXIS_SOURCE_FINGER) {
-        if (m_phase == Phase::GLIDE)
-            stop("caught by other device");
+void CMomentum::onAxis(const IPointer::SAxisEvent& e, const SP<IPointer>& device) {
+    if (e.source != WL_POINTER_AXIS_SOURCE_FINGER || !device || !device->m_connected)
         return;
-    }
 
     if (!cfgInt("enabled", 1)) {
         if (m_phase != Phase::IDLE)
@@ -129,18 +145,19 @@ void CMomentum::onAxis(const IPointer::SAxisEvent& e) {
     if (e.delta == 0.0) {
         // libinput scroll-end: the lift. One arrives per axis; the first one
         // decides, the rest are no-ops.
-        if (m_phase == Phase::TRACK)
+        if (m_phase == Phase::TRACK && m_device.lock() == device)
             maybeLaunch(e.timeMs);
         return;
     }
 
-    // Fingers moving again while gliding: the catch. Fall through into fresh
-    // tracking so a scroll-during-glide seamlessly starts the next gesture.
-    if (m_phase == Phase::GLIDE)
-        stop("caught by scroll");
+    // The new physical sequence owns its own axis stop.
+    if (m_phase == Phase::GLIDE || (m_phase == Phase::TRACK && m_device.lock() != device))
+        stop("caught by scroll", false);
 
-    if (m_phase == Phase::IDLE)
+    if (m_phase == Phase::IDLE) {
+        m_device = device;
         beginTrack(e);
+    }
 
     // Deltas for both axes of one touchpad frame share a timestamp. Bucket
     // them, and integrate the bucket once the timestamp advances.
@@ -233,13 +250,11 @@ void CMomentum::maybeLaunch(uint32_t liftTimeMs) {
 
     m_glideV      = v;
     m_glideH      = h;
-    m_glideFactor = effectiveScrollFactor();
     m_intervalMs  = tickIntervalMs();
     m_lastTickMs  = nowMs();
     m_phase       = Phase::GLIDE;
 
-    dbg("glide: v=" + std::to_string(v * 1000.0) + " h=" + std::to_string(h * 1000.0) + " px/s, factor=" + std::to_string(m_glideFactor) +
-        ", tick=" + std::to_string(m_intervalMs) + "ms");
+    dbg("glide: v=" + std::to_string(v * 1000.0) + " h=" + std::to_string(h * 1000.0) + " px/s, tick=" + std::to_string(m_intervalMs) + "ms");
 
     wl_event_source_timer_update(m_trackTimeout, 0);
     wl_event_source_timer_update(m_glideTimer, m_intervalMs);
@@ -251,6 +266,12 @@ void CMomentum::glideTick() {
 
     if (!cfgInt("enabled", 1)) {
         stop("disabled");
+        return;
+    }
+
+    const auto device = m_device.lock();
+    if (!device || !device->m_connected || PROTO::inputCapture->isCaptured()) {
+        stop("device gone or input captured", false);
         return;
     }
 
@@ -271,35 +292,24 @@ void CMomentum::glideTick() {
         return;
     }
 
-    const auto timeMs = static_cast<uint32_t>(now);
-    bool       sent   = false;
-
-    const double emitV = m_glideV * dt * m_glideFactor;
-    const double emitH = m_glideH * dt * m_glideFactor;
-
-    if (std::abs(emitV) > 1e-4) {
-        g_pSeatManager->sendPointerAxis(timeMs, WL_POINTER_AXIS_VERTICAL_SCROLL, emitV, 0, 0, WL_POINTER_AXIS_SOURCE_CONTINUOUS,
-                                        WL_POINTER_AXIS_RELATIVE_DIRECTION_IDENTICAL);
+    const double deltas[] = {m_glideV * dt, m_glideH * dt};
+    bool sent = false;
+    for (unsigned i = 0; i < 2 && m_phase == Phase::GLIDE; ++i) {
+        if (std::abs(deltas[i]) <= 1e-4)
+            continue;
+        m_glideAxes |= 1U << i;
+        sendGlideAxis(device, AXES[i], deltas[i], axisTimeMs(now));
         sent = true;
     }
-
-    if (std::abs(emitH) > 1e-4) {
-        g_pSeatManager->sendPointerAxis(timeMs, WL_POINTER_AXIS_HORIZONTAL_SCROLL, emitH, 0, 0, WL_POINTER_AXIS_SOURCE_CONTINUOUS,
-                                        WL_POINTER_AXIS_RELATIVE_DIRECTION_IDENTICAL);
-        sent = true;
-    }
-
     if (sent)
-        g_pSeatManager->sendPointerFrame();
-
-    wl_event_source_timer_update(m_glideTimer, m_intervalMs);
+        g_pInputManager->onPointerFrame();
+    if (m_phase == Phase::GLIDE)
+        wl_event_source_timer_update(m_glideTimer, m_intervalMs);
 }
 
-void CMomentum::onTouchpadContact() {
-    // Any new touch on the pad catches the scroll, exactly like macOS: a
-    // cursor-moving finger or a resting hold both stop the glide.
+void CMomentum::onTouchpadContact(const char* reason) {
     if (m_phase == Phase::GLIDE)
-        stop("caught by touch");
+        stop(reason);
 }
 
 void CMomentum::onButtonPress() {
@@ -311,8 +321,8 @@ void CMomentum::onPointerFocusChange() {
     // The glide targets whatever surface has pointer focus; if that changes,
     // continuing would dump leftover scroll into a window that never saw the
     // gesture. Stop instead.
-    if (m_phase == Phase::GLIDE)
-        stop("focus change");
+    if (m_phase != Phase::IDLE)
+        stop("focus change", false);
 }
 
 bool CMomentum::allowedForFocusedWindow() const {
@@ -334,22 +344,6 @@ bool CMomentum::allowedForFocusedWindow() const {
         return false;
 
     return true;
-}
-
-double CMomentum::effectiveScrollFactor() const {
-    // The event bus hands us deltas *before* Hyprland applies scroll factors,
-    // so the glide has to apply the same factor the tracked scroll got:
-    // input:touchpad:scroll_factor, overridden per-window by the
-    // scroll_touchpad window rule.
-    static auto PTOUCHPADFACTOR = CConfigValue<Config::FLOAT>("input:touchpad:scroll_factor");
-
-    double      factor = *PTOUCHPADFACTOR;
-
-    const auto  PWIN = g_pInputManager ? g_pInputManager->m_lastMouseFocus.lock() : nullptr;
-    if (PWIN && PWIN->isScrollTouchpadOverridden())
-        factor = PWIN->getScrollTouchpad();
-
-    return factor > 0.0 ? factor : 1.0;
 }
 
 int CMomentum::tickIntervalMs() const {

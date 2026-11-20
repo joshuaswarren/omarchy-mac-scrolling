@@ -5,5 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Local contracts
+        run: bash tests/contracts.sh
       - name: Arch container smoke
         run: ./tests/container-hyprpm.sh
