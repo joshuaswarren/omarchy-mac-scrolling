@@ -2,7 +2,7 @@
 set -euo pipefail
 if command -v hyprpm >/dev/null 2>&1; then
   hyprpm disable momentum 2>/dev/null || true
-  if hyprpm list 2>/dev/null | rg -q 'omarchy-mac-scrolling'; then
+  if hyprpm list 2>/dev/null | grep -F 'omarchy-mac-scrolling' >/dev/null; then
     printf 'y\n' | hyprpm remove omarchy-mac-scrolling
   fi
   hyprpm reload -n 2>/dev/null || true

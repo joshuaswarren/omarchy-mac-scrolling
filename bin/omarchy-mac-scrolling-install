@@ -20,7 +20,7 @@ else
   hyprpm update -n 2>/dev/null || true
 fi
 
-if ! hyprpm list 2>/dev/null | rg -q 'omarchy-mac-scrolling'; then
+if ! hyprpm list 2>/dev/null | grep -F 'omarchy-mac-scrolling' >/dev/null; then
   printf 'y\n' | hyprpm add "${REPO_URL}"
 else
   echo "omarchy-mac-scrolling: hyprpm repo already registered"
