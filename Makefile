@@ -3,7 +3,7 @@ PLUGIN_NAME = momentum
 SOURCES = $(wildcard src/*.cpp)
 
 CXXFLAGS += -shared -fPIC --no-gnu-unique -std=c++2b -Wall -O2 -g
-PKGS = pixman-1 libdrm hyprland libinput
+PKGS = pixman-1 libdrm hyprland libinput libeis-1.0
 
 all: $(PLUGIN_NAME).so
 

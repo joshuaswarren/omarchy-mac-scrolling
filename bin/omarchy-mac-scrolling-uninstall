@@ -1,27 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-CONF_FILE="${HOME}/.config/omarchy/mac-scrolling.conf"
-HYPR_CONF="${HYPR_CONF:-${HOME}/.config/hypr/hyprland.conf}"
-
 if command -v hyprpm >/dev/null 2>&1; then
   hyprpm disable momentum 2>/dev/null || true
-  if hyprpm list 2>/dev/null | rg -q 'omarchy-mac-scrolling'; then
+  if hyprpm list 2>/dev/null | grep -F 'omarchy-mac-scrolling' >/dev/null; then
     printf 'y\n' | hyprpm remove omarchy-mac-scrolling
   fi
   hyprpm reload -n 2>/dev/null || true
-fi
-
-rm -f "${CONF_FILE}"
-
-if [[ -f "${HYPR_CONF}" ]]; then
-  tmp=$(mktemp)
-  grep -Fv 'mac-scrolling.conf' "${HYPR_CONF}" >"${tmp}" || true
-  if ! cmp -s "${tmp}" "${HYPR_CONF}"; then
-    mv "${tmp}" "${HYPR_CONF}"
-    echo "omarchy-mac-scrolling: removed opt-in source line from ${HYPR_CONF}"
-  else
-    rm -f "${tmp}"
-  fi
 fi
 
 echo "omarchy-mac-scrolling: uninstalled."

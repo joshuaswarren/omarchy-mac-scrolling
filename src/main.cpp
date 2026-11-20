@@ -1,6 +1,7 @@
 #include "globals.hpp"
 #include "Momentum.hpp"
 
+#include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/managers/SeatManager.hpp>
@@ -11,6 +12,7 @@
 #include <hyprland/src/config/values/types/StringValue.hpp>
 #include <hyprland/src/version.h>
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -23,7 +25,37 @@ extern "C" {
 static Hyprutils::Signal::CHyprSignalListener              g_axisListener;
 static Hyprutils::Signal::CHyprSignalListener              g_buttonListener;
 static Hyprutils::Signal::CHyprSignalListener              g_focusListener;
-static std::vector<Hyprutils::Signal::CHyprSignalListener> g_touchpadListeners;
+struct STouchpadListeners {
+    WP<IPointer> pointer;
+    Hyprutils::Signal::CHyprSignalListener axis, motion, hold;
+};
+static std::vector<STouchpadListeners> g_touchpadListeners;
+
+static void watchTouchpads() {
+    std::erase_if(g_touchpadListeners, [](const auto& watched) { return watched.pointer.expired(); });
+    for (const auto& pointer : g_pInputManager->m_pointers) {
+        if (!pointer || !pointer->m_isTouchpad || std::ranges::any_of(g_touchpadListeners, [&](const auto& watched) {
+                return watched.pointer.lock() == pointer;
+            }))
+            continue;
+        WP<IPointer> weak = pointer;
+        g_touchpadListeners.push_back({
+            .pointer = weak,
+            .axis = pointer->m_pointerEvents.axis.listen([weak](const IPointer::SAxisEvent& e) {
+                if (g_pMomentum)
+                    g_pMomentum->onAxis(e, weak.lock());
+            }),
+            .motion = pointer->m_pointerEvents.motion.listen([](const IPointer::SMotionEvent&) {
+                if (g_pMomentum)
+                    g_pMomentum->onTouchpadContact();
+            }),
+            .hold = pointer->m_pointerEvents.holdBegin.listen([](const IPointer::SHoldBeginEvent&) {
+                if (g_pMomentum)
+                    g_pMomentum->onTouchpadContact();
+            }),
+        });
+    }
+}
 
 static void registerConfig() {
     using namespace Config::Values;
@@ -117,9 +149,13 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         registerLua();
 
         g_axisListener = Event::bus()->m_events.input.mouse.axis.listen([](const IPointer::SAxisEvent& e, Event::SCallbackInfo&) {
-            if (g_pMomentum)
-                g_pMomentum->onAxis(e);
-            // Never cancelled: the live scroll always passes through to the app.
+            if (!g_pMomentum)
+                return;
+            if (e.source != WL_POINTER_AXIS_SOURCE_FINGER)
+                g_pMomentum->onTouchpadContact("caught by other device");
+            else
+                // shortcut: a newly connected pad is registered at its first axis event; use a device-added signal if Hyprland adds one.
+                watchTouchpads();
         });
 
         g_buttonListener = Event::bus()->m_events.input.mouse.button.listen([](const IPointer::SButtonEvent& e, Event::SCallbackInfo&) {
@@ -132,21 +168,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
                 g_pMomentum->onPointerFocusChange();
         });
 
-        // The "catch": touching the pad during a glide stops it. Scroll events
-        // are handled by onAxis; these cover cursor motion and resting fingers.
-        for (const auto& pointer : g_pInputManager->m_pointers) {
-            if (!pointer || !pointer->m_isTouchpad)
-                continue;
-
-            g_touchpadListeners.emplace_back(pointer->m_pointerEvents.motion.listen([](const IPointer::SMotionEvent&) {
-                if (g_pMomentum)
-                    g_pMomentum->onTouchpadContact();
-            }));
-            g_touchpadListeners.emplace_back(pointer->m_pointerEvents.holdBegin.listen([](const IPointer::SHoldBeginEvent&) {
-                if (g_pMomentum)
-                    g_pMomentum->onTouchpadContact();
-            }));
-        }
+        watchTouchpads();
     } catch (...) {
         g_axisListener.reset();
         g_buttonListener.reset();
@@ -166,6 +188,8 @@ APICALL EXPORT void PLUGIN_EXIT() {
     g_focusListener.reset();
     g_touchpadListeners.clear();
 
+    if (g_pMomentum && !g_pCompositor->m_isShuttingDown)
+        g_pMomentum->stop("unload");
     delete g_pMomentum;
     g_pMomentum = nullptr;
 }

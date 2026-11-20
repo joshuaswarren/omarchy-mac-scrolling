@@ -16,9 +16,7 @@
 //            independent of both touchpad report rate and timer cadence.
 //
 // The lift is not guessed with timers: libinput emits a scroll-end event
-// (source FINGER, delta 0) which Hyprland forwards through the event bus
-// before applying scroll_factor. That event is the launch trigger, exactly
-// like the "gesture ended" phase macOS keys off.
+// (source FINGER, delta 0) on the originating pointer before scaling.
 class CMomentum {
   public:
     CMomentum();
@@ -27,11 +25,11 @@ class CMomentum {
     CMomentum(const CMomentum&)            = delete;
     CMomentum& operator=(const CMomentum&) = delete;
 
-    void onAxis(const IPointer::SAxisEvent& e);
-    void onTouchpadContact(); // any new touch during a glide is a "catch"
+    void onAxis(const IPointer::SAxisEvent& e, const SP<IPointer>& device);
+    void onTouchpadContact(const char* reason = "caught by touch");
     void onButtonPress();
     void onPointerFocusChange();
-    void stop(const char* reason);
+    void stop(const char* reason, bool endAxes = true);
 
     // Per-app rules, exposed as hl.plugin.momentum.enable/disable(class).
     void setAppRule(const std::string& cls, bool enabled);
@@ -52,10 +50,11 @@ class CMomentum {
     void       maybeLaunch(uint32_t liftTimeMs);
     void       glideTick();
     bool       allowedForFocusedWindow() const;
-    double     effectiveScrollFactor() const;
     int        tickIntervalMs() const;
 
     Phase      m_phase = Phase::IDLE;
+    WP<IPointer> m_device;
+    unsigned m_glideAxes = 0;
 
     // ---- tracking state (velocities in px/ms, pre-scroll_factor units) ----
     double     m_emaV = 0.0, m_emaH = 0.0;
@@ -67,7 +66,6 @@ class CMomentum {
 
     // ---- glide state ----
     double           m_glideV = 0.0, m_glideH = 0.0; // px/ms, decaying
-    double           m_glideFactor = 1.0;            // scroll factor captured at launch
     double           m_lastTickMs  = 0.0;            // steady-clock ms
     int              m_intervalMs  = 8;
 
