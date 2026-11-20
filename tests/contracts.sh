@@ -42,4 +42,7 @@ done
 if grep -Fq 'sendPointerAxis(' src/Momentum.cpp || ! grep -Fq 'onMouseWheel(' src/Momentum.cpp || ! grep -Fq 'onPointerFrame(' src/Momentum.cpp; then
   fail 'synthetic axes must enter Hyprland via its input manager and frame path'
 fi
+if ! sed -n '/void PLUGIN_EXIT()/,$p' src/main.cpp | grep -Fq 'stop("unload")'; then
+  fail 'live unload must close the synthetic finger axes before teardown'
+fi
 exit "$status"

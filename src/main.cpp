@@ -1,6 +1,7 @@
 #include "globals.hpp"
 #include "Momentum.hpp"
 
+#include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/managers/SeatManager.hpp>
@@ -187,6 +188,8 @@ APICALL EXPORT void PLUGIN_EXIT() {
     g_focusListener.reset();
     g_touchpadListeners.clear();
 
+    if (g_pMomentum && !g_pCompositor->m_isShuttingDown)
+        g_pMomentum->stop("unload");
     delete g_pMomentum;
     g_pMomentum = nullptr;
 }
